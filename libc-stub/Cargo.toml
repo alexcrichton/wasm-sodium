@@ -1,0 +1,7 @@
+[package]
+name = "libc-stub"
+version = "0.1.0"
+authors = ["Alex Crichton <alex@alexcrichton.com>"]
+
+[dependencies]
+wasm-bindgen = "0.2"

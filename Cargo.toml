@@ -1,0 +1,28 @@
+[package]
+name = "wasm-sodium"
+version = "0.1.0"
+authors = ["Alex Crichton <alex@alexcrichton.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+
+# A fork of `sodiumoxide` which has been tweaked for wasm32-unknown-unknown
+# support. It's a bit questionable how it's all supported but for now it should
+# work. The main change here is to avoid importing types from the `libc` crate
+# and instead define them locally. Once `clang` stabilizes its
+# `wasm32-unknown-unknown-wasm` target we can start filling out the `libc` crate
+# and we won't need the fork any more, it'll work natively (mostly).
+#
+# One final fix here was to avoid using `libc::strlen` and instead define it
+# in Rust.
+sodiumoxide = { git = 'https://github.com/alexcrichton/sodiumoxide', branch = 'wasm32' }
+
+libc-stub = { path = 'libc-stub' }
+
+[profile.release]
+lto = true
+opt-level = 's'
+panic = 'abort'

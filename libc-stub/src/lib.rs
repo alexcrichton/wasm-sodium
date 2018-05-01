@@ -37,28 +37,43 @@ use wasm_bindgen::prelude::*;
 
 use std::ffi::CStr;
 use std::heap::{GlobalAlloc, Global, Layout};
-use std::iter;
 use std::mem;
 use std::slice;
+
+// Generic function which references the libc functions to avoid them being
+// optimized away, hopefully one day this pattern will also allow us to avoid
+// exporting the symbols below.
+pub fn foo<T>() -> usize {
+    __errno_location as usize +
+        abort as usize +
+        __assert_fail as usize +
+        malloc as usize +
+        free as usize +
+        open as usize +
+        fstat as usize +
+        read as usize +
+        close as usize +
+        fcntl as usize
+}
 
 // This is used to access `errno` and is typically thread-local, but only one
 // thread on wasm so we can make it a global
 #[no_mangle]
-pub unsafe extern fn __errno_location() -> *mut i32 {
+unsafe extern fn __errno_location() -> *mut i32 {
     static mut ERRNO: i32 = 0;
     &mut ERRNO
 }
 
 // This is, well, `abort`. It can't return.
 #[no_mangle]
-pub unsafe extern fn abort() -> ! {
+unsafe extern fn abort() -> ! {
     wasm_bindgen::throw("abort");
 }
 
 // Shim called by the `assert` macro in C, we just send it off to `throw` like
 // `abort` above
 #[no_mangle]
-pub unsafe extern fn __assert_fail(
+unsafe extern fn __assert_fail(
     msg: *const i8,
     _file: *const i8,
     _line: i32,
@@ -71,7 +86,7 @@ pub unsafe extern fn __assert_fail(
 // Good ol' malloc and free. Looks like libsodium will do some memory
 // allocation. That's handled here by routing to Rust's global memory allocator.
 #[no_mangle]
-pub unsafe extern fn malloc(a: usize) -> *mut u8 {
+unsafe extern fn malloc(a: usize) -> *mut u8 {
     let size = a + mem::size_of::<usize>();
     let layout = match Layout::from_size_align(size, mem::align_of::<usize>()) {
         Ok(n) => n,
@@ -86,7 +101,7 @@ pub unsafe extern fn malloc(a: usize) -> *mut u8 {
 }
 
 #[no_mangle]
-pub unsafe extern fn free(ptr: *mut u8) {
+unsafe extern fn free(ptr: *mut u8) {
     let ptr = (ptr as *mut usize).offset(-1);
     let size = *ptr.offset(0);
     let align = mem::size_of::<usize>();
@@ -108,7 +123,7 @@ pub unsafe extern fn free(ptr: *mut u8) {
 // for libsodium. This is the biggest hack of all!
 
 #[no_mangle]
-pub unsafe extern fn open(_a: i32, _b: i32) -> i32 {
+unsafe extern fn open(_a: i32, _b: i32) -> i32 {
     // TODO: check that the filename is `/dev/random` and only return an fd for
     // that, but this is called with a varargs ABI so difficult to check...
     3
@@ -125,7 +140,7 @@ pub struct stat {
 }
 
 #[no_mangle]
-pub unsafe extern fn fstat(fd: i32, s: *mut stat) -> i32 {
+unsafe extern fn fstat(fd: i32, s: *mut stat) -> i32 {
     if fd == 3 {
         (*s).st_mode = 0o20000; // make ST_ISCHR pass in libsodium
         0
@@ -135,12 +150,12 @@ pub unsafe extern fn fstat(fd: i32, s: *mut stat) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe extern fn close(fd: i32) -> i32 {
+unsafe extern fn close(fd: i32) -> i32 {
     if fd == 3 { 0 } else { -1 }
 }
 
 #[no_mangle]
-pub unsafe extern fn fcntl(_: i32, _: i32, _: i32) -> i32 {
+unsafe extern fn fcntl(_: i32, _: i32, _: i32) -> i32 {
     0
 }
 
@@ -151,7 +166,7 @@ extern {
 }
 
 #[no_mangle]
-pub unsafe extern fn read(fd: i32, bytes: *mut u8, amt: i32) -> i32 {
+unsafe extern fn read(fd: i32, bytes: *mut u8, amt: i32) -> i32 {
     if fd != 3 {
         return -1
     }

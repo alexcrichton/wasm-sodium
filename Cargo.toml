@@ -26,3 +26,6 @@ libc-stub = { path = 'libc-stub' }
 lto = true
 opt-level = 's'
 panic = 'abort'
+
+[patch.crates-io]
+wasm-bindgen = { git = 'https://github.com/alexcrichton/wasm-bindgen' }

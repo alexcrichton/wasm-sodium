@@ -56,3 +56,5 @@ RUN CFLAGS="$CFLAGS --sysroot=/musl-sysroot -DSODIUM_STATIC"\
 RUN make -j$(nproc) install
 ENV SODIUM_LIB_DIR /musl-sysroot/lib
 ENV SODIUM_STATIC 1
+RUN rustup self uninstall -y
+ENV PATH /rust/bin:$PATH

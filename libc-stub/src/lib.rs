@@ -159,10 +159,11 @@ unsafe extern fn fcntl(_: i32, _: i32, _: i32) -> i32 {
     0
 }
 
-#[wasm_bindgen]
+// Note that this binding is node.js specific, you'd want to use a tweaked
+// version for web browsers calling `crypto.getRandomValues`
+#[wasm_bindgen(module = "crypto", version = "*")]
 extern {
-    #[wasm_bindgen(js_namespace = Math)]
-    fn random() -> f64;
+    fn randomFillSync(input: &mut [u8]);
 }
 
 #[no_mangle]
@@ -171,16 +172,7 @@ unsafe extern fn read(fd: i32, bytes: *mut u8, amt: i32) -> i32 {
         return -1
     }
 
-    // TODO: this is a terrible random number generator for a lot of reasons
-    let rand = iter::repeat(())
-        .map(|()| random())
-        .flat_map(|f| {
-            let bits = f.to_bits();
-            (0..8).map(move |i| (bits >> (i * 8)) as u8)
-        });
     let bytes = slice::from_raw_parts_mut(bytes, amt as usize);
-    for (slot, val) in bytes.iter_mut().zip(rand) {
-        *slot = val;
-    }
+    randomFillSync(bytes);
     amt
 }
